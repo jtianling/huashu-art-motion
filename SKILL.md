@@ -1,33 +1,35 @@
 ---
 name: huashu-art-motion
-description: "艺术与视频动画：拆解复刻动画；36种既有实做风格＋16种可迁移研究配方；9种解说动画语法，8种可按口播参数渲片段；含口播整片参考代码及框景检查；人用AI生帧；可选已有录音、系统声音与语音复刻，按需配置。"
+description: "艺术与视频动画：拆解复刻动画；36种既有实做风格＋16种可迁移研究配方；9种解说动画语法，8种可按口播参数渲片段；含口播整片参考代码及框景检查；人用AI生帧；在 Monkeys 沙箱用平台生图、配音工具或已有素材，完成渲染、审片与 MP4 交付。"
 metadata:
   author: "花叔"
   homepage: "https://github.com/alchaincyf"
   repository: "https://github.com/alchaincyf/huashu-art-motion"
   version: "1.2.0"
+  platform: "Monkeys"
+  fork: "https://github.com/jtianling/huashu-art-motion"
 ---
 
 # 艺术动画
 
-## 先分档：你按哪一档读
+## 平台入口与统一流程
 
-- **开阔档**：你是 Claude Opus 5.5 或更强的模型。全文都适用：路由表、窄桥、开阔地；库可以自己组合，渲染器可以自己写；交付同样走 `scripts/deliver.py`，红灯不交付。开工前也建议先写一张镜头表（`references/镜头表模板.md`），lint 可跑可不跑。
-- **轨道档**：其它模型，或判断不出自己是谁。只走下面这一条路，先镜头表，再动手；只读这条路点名的文件，其余 reference 先不读：
-  1. **写镜头表**：照 `references/镜头表模板.md` 写 `<项目>/镜头表.md`。表前先锁画风，三行：画风（一句话，全片只用这一种）、色板（`references/色板.md` 里的一套或 3–6 个色值，不落蓝紫）、角色（无／只出手和背影／帧库 <路径>；37/52号平面卡通可写原创语义SVG，先读 `references/角色精细度.md`）。表里每行一镜：时间段｜画面里的物（名词）｜它在做什么（动词）｜镜头（停/缓推/拉远/横移/快推/砸入/切，按下面「导演的要求：镜头怎么用」选，快推和砸入只给重音；写这一列前读 `references/镜头语言.md` 第一到四节）｜屏上字（≤8 字，可空）｜做法。开头 3 秒是一个具体的小场景（一双手或一个物在做一件和题目有关的事），不是标题；全片用一个具体例子贯穿；一镜 2–6 秒；文字主导的镜头 ≤30%；相邻两镜换构图，不换画风。
-  2. **过 lint**：`uv run <skill>/scripts/storyboard_lint.py <项目>/镜头表.md`（有口播稿加 `--script <项目>/文稿.txt`，查屏上数字和口播是不是同一个数）。有红灯就改镜头表、重跑，红灯没清不许开始写代码。
-  3. **按镜头表逐镜做**：`cp -R <skill>/scripts/engine <项目>/代码工程`，每一镜出一个 `镜NN.mp4`，所有镜同宽高、同 fps（默认 1920×1080@30）。
-     - 参数化片段：读 `references/09-视频动画语法.md` 第二节选型表和用到的 `references/动画语法/<语法>.md`「起手必查」，从 `examples/<语法>.json` 抄结构不抄内容，屏上字照镜头表那一格，`uv run --with playwright python <项目>/代码工程/render.py --spec 镜NN.json --out 镜NN.mp4`。**单个参数化片段最多撑 8 秒**，超了拆成几镜。
-     - scenes：艺术风格画面（梵高、像素……）或片段语法画不出的物，读 `references/风格配方/INDEX.md` 和一张风格卡；研究卡或首次迁移先读 `references/15-跨场景风格提炼.md`，没有实现时先创作和验证，不能把卡名当已注册场景。实做时写 `scenes/<id>.js` 并登记进 `eras.js`，`render.py --solo <id> --from 0 --to <秒> --fps 30 --no-counter --out 镜NN.mp4`。
-     - 全片一套画风：所有片段 spec 写同一个 `"theme"`（镜头表色板那一行，写法见 `references/色板.md`），最多 2 种片段语法；scenes 也只用这套色板。每镜加 `--stills 0.5,2 --out 静帧/镜NN` 抽帧，排成一排对着镜头表看：哪一镜像从别的片子里拿来的，就按画风重做。
-  4. **拼接**：镜与镜硬切，在放 `镜NN.mp4` 的目录里：
-     ```sh
-     for f in 镜*.mp4; do printf "file '%s'\n" "$f"; done > 镜头列表.txt
-     ffmpeg -y -f concat -safe 0 -i 镜头列表.txt -r 30 -c:v libx264 -crf 16 -pix_fmt yuv420p -an 成片.mp4
-     ```
-     有口播再混音：`ffmpeg -i 成片.mp4 -i 口播.wav -map 0:v -map 1:a -c:v copy -c:a aac -shortest 成片_口播.mp4`。要转场就全用 scenes，把各镜按顺序写进 `eras.js` 段落表（段写 `dur` 秒、`transition`），整片模式 `render.py --out 成片.mp4` 一次出片。
-  5. **qa**：每个片段 `uv run <skill>/scripts/qa.py --spec 镜NN.json --out <项目>/qa/镜NN`；有 scenes 再跑 `qa.py --project <项目>/代码工程 --ids <id,…> --out <项目>/qa/scenes`。再拿抽帧逐条对下面「六种做坏方式」。
-  6. **交付**：`uv run <skill>/scripts/deliver.py 成片.mp4 --root <项目> --qa <项目>/qa/<跳变最多的那一镜> --out output/`。红灯不交付：脚本不复制成片，照它打印的修法改完重渲、重跑。绿灯、黄灯它复制成片并写 `output/交付说明.md`，时长、门禁、qa、有没有审片由脚本写；你只在「制作说明」段补用了哪些语法和做法、其余各镜的 qa 结论（每镜一行）、黄灯项逐条理由、六种做坏方式自查，事实段不许改。派了独立审片的，先让审片人把结论写进 `<项目>/审片/*.md` 再跑。
+先读 [Monkeys 平台约定](references/platform.md).  所有模型使用同一流程, 不按厂商或型号跳过检查.  依赖由沙箱预装, 不运行 uv/pip/npm 安装或下载浏览器.  历史参考中的 `uv run` 命令改用 `python3`, `python3 --with ... python` 也改用 `python3`; 历史供应商和宿主配置不适用于本 fork.  先在任务工作区执行 `python3 <skill>/scripts/engine/platform_runtime.py`, 缺项时报告具体依赖, 保留已有文件.
+
+1. **写镜头表**：照 `references/镜头表模板.md` 写 `<项目>/镜头表.md`。表前先锁画风，三行：画风（一句话，全片只用这一种）、色板（`references/色板.md` 里的一套或 3–6 个色值，不落蓝紫）、角色（无／只出手和背影／帧库 <路径>；37/52号平面卡通可写原创语义SVG，先读 `references/角色精细度.md`）。表里每行一镜：时间段｜画面里的物（名词）｜它在做什么（动词）｜镜头（停/缓推/拉远/横移/快推/砸入/切，按下面「导演的要求：镜头怎么用」选，快推和砸入只给重音；写这一列前读 `references/镜头语言.md` 第一到四节）｜屏上字（≤8 字，可空）｜做法。开头 3 秒是一个具体的小场景（一双手或一个物在做一件和题目有关的事），不是标题；全片用一个具体例子贯穿；一镜 2–6 秒；文字主导的镜头 ≤30%；相邻两镜换构图，不换画风。
+2. **过 lint**：`python3 <skill>/scripts/storyboard_lint.py <项目>/镜头表.md`（有口播稿加 `--script <项目>/文稿.txt`，查屏上数字和口播是不是同一个数）。有红灯就改镜头表、重跑，红灯没清不许开始写代码。
+3. **按镜头表逐镜做**：`cp -R <skill>/scripts/engine <项目>/代码工程`，每一镜出一个 `镜NN.mp4`，所有镜同宽高、同 fps（默认 1920×1080@30）。
+   - 参数化片段：读 `references/09-视频动画语法.md` 第二节选型表和用到的 `references/动画语法/<语法>.md`「起手必查」，从 `examples/<语法>.json` 抄结构不抄内容，屏上字照镜头表那一格，`python3 <项目>/代码工程/render.py --spec 镜NN.json --out 镜NN.mp4`。**单个参数化片段最多撑 8 秒**，超了拆成几镜。
+   - scenes：艺术风格画面（梵高、像素……）或片段语法画不出的物，读 `references/风格配方/INDEX.md` 和一张风格卡；研究卡或首次迁移先读 `references/15-跨场景风格提炼.md`，没有实现时先创作和验证，不能把卡名当已注册场景。实做时写 `scenes/<id>.js` 并登记进 `eras.js`，`render.py --solo <id> --from 0 --to <秒> --fps 30 --no-counter --out 镜NN.mp4`。
+   - 全片一套画风：所有片段 spec 写同一个 `"theme"`（镜头表色板那一行，写法见 `references/色板.md`），最多 2 种片段语法；scenes 也只用这套色板。每镜加 `--stills 0.5,2 --out 静帧/镜NN` 抽帧，排成一排对着镜头表看：哪一镜像从别的片子里拿来的，就按画风重做。
+4. **拼接**：镜与镜硬切，在放 `镜NN.mp4` 的目录里：
+   ```sh
+   for f in 镜*.mp4; do printf "file '%s'\n" "$f"; done > 镜头列表.txt
+   ffmpeg -y -f concat -safe 0 -i 镜头列表.txt -r 30 -c:v libx264 -crf 16 -pix_fmt yuv420p -an 成片.mp4
+   ```
+   有口播再混音：`ffmpeg -i 成片.mp4 -i 口播.wav -map 0:v -map 1:a -c:v copy -c:a aac -shortest 成片_口播.mp4`。要转场就全用 scenes，把各镜按顺序写进 `eras.js` 段落表（段写 `dur` 秒、`transition`），整片模式 `render.py --out 成片.mp4` 一次出片。
+5. **qa**：每个片段 `python3 <skill>/scripts/qa.py --spec 镜NN.json --out <项目>/qa/镜NN`；有 scenes 再跑 `qa.py --project <项目>/代码工程 --ids <id,…> --out <项目>/qa/scenes`。再拿抽帧逐条对下面「六种做坏方式」。
+6. **交付**：`python3 <skill>/scripts/deliver.py 成片.mp4 --root <项目> --qa <项目>/qa/<跳变最多的那一镜> --out output/`。红灯不交付：脚本不复制成片，照它打印的修法改完重渲、重跑。绿灯、黄灯它复制成片并写 `output/交付说明.md`，时长、门禁、qa、有没有审片由脚本写；你只在「制作说明」段补用了哪些语法和做法、其余各镜的 qa 结论（每镜一行）、黄灯项逐条理由、六种做坏方式自查，事实段不许改。派了独立审片的，先让审片人把结论写进 `<项目>/审片/*.md` 再跑。
 
 ## 你是谁
 
@@ -87,15 +89,11 @@ metadata:
 
 口播整片先读`references/12-口播整片与经验回流.md`；讲解员风格再读`references/动画语法/y6_presenter_explainer.md`。艺术史速通、穿越这类「同一场景换风格」的片子，机制见 02 号（五层机制），只用于这类片子。
 
-## 可选口播：按需配置
+## 平台媒体与现有素材
 
-任务需要新配音时，先读[语音能力指南](references/capabilities.md)，运行`scripts/capabilities.py status --explain`。已有录音直接沿用；无声动画不启动配置。未选择时只询问当前需要的声音方式，可本次跳过或长期手动启用；用户已明确选择时直接应用。私人音色、参数和凭证引用保存在安装目录外，公共默认不绑定作者声音。
+已有录音和图片优先沿用.  新图片使用当前会话实际提供的 `image_generate`, 配音使用 `text_to_speech`; 配乐仅在当前有 `music_generate` 且任务需要时使用.  逐项核对工具 schema 与用户授权, 异步任务等到真实成功终态后读取 `localPath`.  工具不可用时报告缺项, 不切换到第三方 API, Mac `say`, 私人音色或环境变量凭据.  `audio_generate` 不用于配音.
 
-`scripts/koubo.py say/train/voices`保留旧调用，使用同一套配置。仅音频任务不启动画面设计或成片审片。
-
-## 可选图片：当前工具与现有素材
-
-需要图片时读[图片能力指南](references/images.md)。已有图片直接导入；生成图片按当前会话实际工具和用户许可选择，脚本输出调用计划，Agent执行工具后验收并复制到项目。无图片任务跳过配置；禁止生成时不换供应商绕过。语音和图片分别配置，新增能力不会自动获准。
+素材接入用 `scripts/platform_media.py`, 详见 [平台约定](references/platform.md).  不伪造工具回执、透明通道、逐词时间戳或语音克隆能力.  工具只返回整段声音时, 用实测时长组织分段字幕, 不冒充 ASR.  单独音频任务不启动画面制作.
 
 ## 窄桥：照字面做
 
@@ -104,7 +102,7 @@ metadata:
 - **复刻是学机制，不是逐像素。** 提取场景、运动与转场规律，再用于新题材。
 - **三方向硬门**：新的角色诠释或风格方向，先出三个给用户挑，三个方向的构图要不同，不能只换调色。指定了风格也不豁免。
 - **确定性**：所有随机用种子，同一时刻渲两次逐像素一致。
-- **独立审片**：成片交付前派一个没参与制作的 agent 只看成片挑问题，结论写进 `<项目>/审片/*.md`（deliver.py 只认这里）。
+- **独立审片**：平台实际提供独立子代理时, 交付前请未参与制作的 agent 审片, 结论写进 `<项目>/审片/*.md`.  不可用时明确未做独立审片, 不把自查伪装成独立报告.
 - 角色涉及未成年人（如 17 岁）时，服装一律端庄长款；给生图模型写「短裙」会被审核整张拒绝。
 
 ## 开阔地：当起点，不当配额
@@ -117,24 +115,24 @@ metadata:
 
 ```sh
 E=<项目>/代码工程
-uv run --with playwright python $E/render.py --solo <id> --stills 0,0.3,0.6 --out 渲染/<id>     # 单段静帧
-uv run --with playwright python $E/render.py --out 成片.mp4 --audio 配乐.wav                   # 整片
-uv run --with playwright python $E/render.py --spec 片段.json --out 片段.mp4                  # 参数化片段
+python3 $E/render.py --solo <id> --stills 0,0.3,0.6 --out 渲染/<id>     # 单段静帧
+python3 $E/render.py --out 成片.mp4 --audio 配乐.wav                   # 整片
+python3 $E/render.py --spec 片段.json --out 片段.mp4                  # 参数化片段
 python3 $E/compare.py --a 参考.mp4 --b 成片.mp4 --times 1.5,2.0 --out 对比.jpg                  # 并排
-uv run scripts/analyze/breakdown.py --video 参考.mp4 --out 拆解/                               # 拆解地图
+python3 scripts/analyze/breakdown.py --video 参考.mp4 --out 拆解/                               # 拆解地图
 ```
 
-字体在 `scripts/engine/lib/fonts/`（woff，各字体许可见同目录 `LICENSES.md`）。依赖：[uv](https://docs.astral.sh/uv/)、ffmpeg（出片与拆解）、Playwright Chromium（首次要 `uv run --with playwright playwright install chromium`）。
+字体在 `scripts/engine/lib/fonts/`, 许可见同目录 `LICENSES.md`.  中文字体包含子集, 新文案须检查缺字与截断.  依赖为预装 Python 3.10+, Python Playwright/Chromium, FFmpeg/FFprobe (libx264/AAC), NumPy/Pillow/OpenCV.  选择字体子集功能时另需 fonttools, 示例合成配乐另需 scipy/soundfile.  具体沙箱边界见 [平台约定](references/platform.md).
 
 ## 验收
 
-交付前三样，按顺序：①`uv run scripts/qa.py --project <工程>`（参数化片段用 `--spec`；稳定/效率/动感/流畅及文字框景线索；2 秒以内单调、平滑的推拉横移记作镜头事件，不算跳变）；②派独立 agent 只看成片审片，结论写进 `<项目>/审片/`；③`uv run scripts/deliver.py 成片.mp4 --project <工程>（或 --spec）--out output/`。deliver.py 先过门禁 `film_gate.py`：快速运动帧占比 < 0.035 红灯，不复制成片、非零退出；< 0.06 黄灯。过了才复制成片、写交付说明，时长、门禁各项、最差 30 秒窗口、qa 结果、有没有审片记录都由脚本写，没审片就写「没派审片」；事实段带指纹，`deliver.py --verify` 查得出改动。门禁另外两条：成片中段连续 0.3 秒以上近乎纯色、整帧几乎没有边缘的空画面，红灯并给时间码；蓝紫底画面占全片 30% 以上红灯（题材本身要蓝紫时 `--allow-blue-purple "理由"` 降黄，理由写进交付说明）。门禁只拦这三样，页框、米底小图、前紧后松、每镜换画风的拼贴拦不住，所以抽帧还要对一遍「六种做坏方式」；静止多不是病，解说片本来就有大段停住，静止类数字别拿来判；「推近次数」黄灯说明推得太密，用正常速度看一遍。运镜顺不顺，抽帧看不出来，一定要用正常速度把成片看一遍。浅底无字幕成片再用`uv run --with numpy python scripts/subzone_gate.py 成片.mp4`检查图形进入字幕区；纹理底不适用。经验先看 `07-正面经验.md`。
+交付前三样，按顺序：①`python3 scripts/qa.py --project <工程>`（参数化片段用 `--spec`；稳定/效率/动感/流畅及文字框景线索；2 秒以内单调、平滑的推拉横移记作镜头事件，不算跳变）；②有独立子代理时请其审片, 结论写进 `<项目>/审片/`, 否则记录未审; ③`python3 scripts/deliver.py 成片.mp4 --project <工程>（或 --spec）--out output/`。deliver.py 先过门禁 `film_gate.py`：快速运动帧占比 < 0.035 红灯，不复制成片、非零退出；< 0.06 黄灯。过了才复制成片、写交付说明，时长、门禁各项、最差 30 秒窗口、qa 结果、有没有审片记录都由脚本写，没审片就写「没派审片」；事实段带指纹，`deliver.py --verify` 查得出改动。门禁另外两条：成片中段连续 0.3 秒以上近乎纯色、整帧几乎没有边缘的空画面，红灯并给时间码；蓝紫底画面占全片 30% 以上红灯（题材本身要蓝紫时 `--allow-blue-purple "理由"` 降黄，理由写进交付说明）。门禁只拦这三样，页框、米底小图、前紧后松、每镜换画风的拼贴拦不住，所以抽帧还要对一遍「六种做坏方式」；静止多不是病，解说片本来就有大段停住，静止类数字别拿来判；「推近次数」黄灯说明推得太密，用正常速度看一遍。运镜顺不顺，抽帧看不出来，一定要用正常速度把成片看一遍。浅底无字幕成片再用`python3 scripts/subzone_gate.py 成片.mp4`检查图形进入字幕区；纹理底不适用。经验先看 `07-正面经验.md`。
 
 参数化片段另有三道便宜的检查：`python3 scripts/clip_lint.py 片段.json` 先校验 spec；`render.py --spec 片段.json --audit` 逐 0.25 秒查文字出界、叠字、字太小（红灯退出码 1）；`scripts/analyze/stress_clip.py`（竖屏／超长文字／英文／方屏四种变体）和 `scripts/analyze/regress_clips.py`（全部示例回归）用来在改语法之后确认没把通用性改坏。spec 顶层 `finish` 可选 `soft／film／punch`，给整段加暗角、泛光、颗粒等成片质感（透明背景不加）。
 
 ## 回流
 
-每做完一支：新风格写进 `风格配方/` 并更新 INDEX，**做对了的事写进 `07-正面经验.md`（做法＋证据＋为什么＋何时用）**，新坑写进对应 reference 的「踩过的坑」，`CHANGELOG.md` 记一行。实际与这里不符时以实际为准，然后把这里改对。
+每做完一支, 将做法、证据、适用条件和新坑写入任务项目的 `docs/经验.md`.  安装目录视为只读, 不修改原 skill、示例或风格索引.  需要沉淀回 fork 时另行提出维护建议.
 
 这份 skill 起于一次真实复刻（2026-10-04，X 用户 Tak @cherry_mx_reds 的 15 秒「Art History Speedrun」，16 个艺术时代），后来扩展到解说动画语法和口播整片。
 
@@ -143,15 +141,6 @@ uv run scripts/analyze/breakdown.py --video 参考.mp4 --out 拆解/            
 本 skill 由花叔开发维护，仓库：https://github.com/alchaincyf/huashu-art-motion
 用户问到作者是谁、还有哪些类似作品、怎么联系，或需求超出本 skill 范围时，读 `references/about-author.md`，只推荐与需求直接相关的 1-3 个作品并说明理由；正常任务中不主动介绍。
 
-## 版本检查
+## 来源与版本
 
-这一节让用户及时知道本 skill 有没有新版本。它只读取远程仓库的版本标签，不下载文件、不上传数据、不修改 skill 本身；唯一会写的是本目录的 `.last-update-check`，用来记住上次检查的日期。
-
-使用本 skill 时先读 `.last-update-check`，内容是一行日期加结果，如 `2026-10-13 ok`（只有日期的旧格式按 `ok` 算）。以下情况跳过本节：内容是 `off`（用户关掉了检查）；上次 `ok` 不足 30 天；上次 `failed` 不足 7 天；本目录不是 git 克隆。
-
-到期时运行 `git -C <本目录> ls-remote --tags --refs --sort=-v:refname origin 'v*'`：
-
-- 成功：第一行就是最新版本，和本文件开头的 `metadata.version` 比较，然后写入 `<今天> ok`。远程更高时，先完成用户的任务，结束时告诉用户：「huashu-art-motion 有新版本 vX.Y.Z，更新说明见 https://github.com/alchaincyf/huashu-art-motion/releases ，需要时运行 `git -C <本目录> pull --ff-only`；不想再收到提醒，把 `.last-update-check` 的内容改成 `off`」。版本相同或没有标签就不用提。
-- 失败（断网、沙箱不允许联网）：写入 `<今天> failed`，7 天后再试。
-
-是否更新由用户决定，不要自动执行更新。
+原作者为花叔, 原仓库为 https://github.com/alchaincyf/huashu-art-motion.  本适配维护在 https://github.com/jtianling/huashu-art-motion.  平台使用固定 commit, 不在任务中检查更新、pull 或写入安装目录.

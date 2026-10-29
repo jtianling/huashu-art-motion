@@ -32,7 +32,7 @@ def en(o, key=None, n=[0]):
 
 def run_audit(spec: dict, tmp: Path):
     f = tmp / 'v.json'; f.write_text(json.dumps(spec, ensure_ascii=False))
-    r = subprocess.run(['uv', 'run', '--with', 'playwright', 'python', str(ENG / 'render.py'), '--spec', str(f), '--audit'], capture_output=True, text=True)
+    r = subprocess.run([sys.executable, str(ENG / 'render.py'), '--spec', str(f), '--audit'], capture_output=True, text=True)
     txt = r.stdout + r.stderr; m = re.search(r'红灯 (\d+)\s+黄灯 (\d+)', txt)
     return (int(m.group(1)), int(m.group(2)), [l.strip() for l in txt.splitlines() if '🔴' in l or '🟡' in l]) if m else (-1, 0, [txt.strip().splitlines()[-1] if txt.strip() else '没有输出'])
 

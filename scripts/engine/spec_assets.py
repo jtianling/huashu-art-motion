@@ -21,7 +21,9 @@ def _url(f, allowed):
 
 
 def _file(v, base, allowed, what):
-    if not v or str(v).startswith(('data:', 'http:', 'https:')):
+    if str(v).startswith(('http:', 'https:', '//')):
+        raise ValueError('Remote media is disabled; import a local platform artifact')
+    if not v or str(v).startswith('data:'):
         return v
     f = (base / v).resolve()
     if not f.is_file():

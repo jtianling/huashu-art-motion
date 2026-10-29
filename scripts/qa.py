@@ -35,10 +35,11 @@
 
 产物：<out>/qa.json（全部数字）、<out>/qa.md（表）、<out>/<id>.jpg（4 帧拼图＋运动热图）。
 """
-import argparse, base64, functools, http.server, io, json, socketserver, sys, threading, urllib.parse
+import argparse, base64, functools, http.server, io, json, socketserver, sys, urllib.parse
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent / 'engine'))
 import spec_assets
+from platform_runtime import chromium, serving
 import numpy as np
 from PIL import Image, ImageDraw
 from playwright.sync_api import sync_playwright
@@ -63,6 +64,8 @@ if a.sub_band is None:   # 片段给管线用：字幕让位写在 spec 的 safe
 
 class Q(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *x): pass
+    def log_error(self, fmt, *args):
+        print('[http]', self.path, fmt % args, file=sys.stderr)
     def translate_path(self, path):
         if path.startswith('/__file__/'):
             f = urllib.parse.unquote(path[len('/__file__/'):].split('?')[0])
@@ -74,7 +77,6 @@ class LocalServer(socketserver.ThreadingTCPServer):
     daemon_threads = True
 
 srv = LocalServer(('127.0.0.1', 0), functools.partial(Q, directory=str(root))); port = srv.server_address[1]
-threading.Thread(target=srv.serve_forever, daemon=True).start()
 
 # 框景检查：包一层 fillText/strokeText，记下画在「整屏大小的画布」上的字的屏幕外框（经过当前变换）
 TEXT_HOOK = '''(() => {
@@ -225,9 +227,11 @@ def camera_events(frames, diffs, idx, fps, max_s=2.0):
 
 report = {'project': str(root), 'spec': str(Path(a.spec).resolve()) if a.spec else None, 'segments': []}
 errors = []
-with sync_playwright() as p:
-    br = p.chromium.launch(args=['--enable-gpu-rasterization', '--ignore-gpu-blocklist'])
+with serving(srv), sync_playwright() as p, chromium(p) as br:
     pg = br.new_page(viewport={'width': VW, 'height': VH})
+    pg.on('response', lambda response: print(
+        f'[http {response.status}] {response.url}', file=sys.stderr
+    ) if response.status >= 400 else None)
     pg.on('pageerror', lambda e: errors.append(str(e)))
     pg.on('console', lambda m: errors.append('console.error: ' + m.text) if m.type == 'error' else None)   # 缺字形等由 console.error 报出
     pg.add_init_script(TEXT_HOOK)
@@ -301,9 +305,6 @@ with sync_playwright() as p:
                 errors.append(f"转场 {s['tr']['type']}（进入 {s['id']}）p={p}: {str(ex).splitlines()[0]}")
         report['transitions'].append({'id': s['id'], 'type': s['tr']['type'], 'ms_max': round(max(ms_tr), 1) if ms_tr else None})
     if report['transitions']: print('转场冒烟', len(report['transitions']), '个，最慢', max((r['ms_max'] or 0, r['type']) for r in report['transitions']))
-    br.close()
-srv.shutdown()
-srv.server_close()
 report['page_errors'] = errors
 json.dump(report, open(out / 'qa.json', 'w'), ensure_ascii=False, indent=1)
 rows = ['| 段 | 运动% | 静止帧对% | 跳变 | 镜头事件 | 均/峰 ms | 冷启动 ms | 确定性 | 框景 |', '|---|---|---|---|---|---|---|---|---|']

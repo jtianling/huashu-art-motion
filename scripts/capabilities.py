@@ -443,9 +443,7 @@ def main():
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except (ConfigError, OSError, subprocess.SubprocessError) as e:
-        message = str(e) if isinstance(e, ConfigError) else type(e).__name__
-        print(json.dumps({'status': 'error', 'message': message}, ensure_ascii=False), file=sys.stderr)
-        raise SystemExit(2)
+    raise SystemExit(
+        'Legacy media CLI is disabled in the Monkeys fork. '
+        'Use platform tools and scripts/platform_media.py; see references/platform.md.'
+    )

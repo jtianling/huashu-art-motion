@@ -1,0 +1,14 @@
+test_bad_receipts (test_platform.PlatformTests.test_bad_receipts) ... ok
+test_encoder_failure_contains_stderr (test_platform.PlatformTests.test_encoder_failure_contains_stderr) ... ok
+test_legacy_cli_does_not_read_configuration (test_platform.PlatformTests.test_legacy_cli_does_not_read_configuration) ... ok
+test_missing_browser_does_not_download (test_platform.PlatformTests.test_missing_browser_does_not_download) ... ok
+test_normalized_tool_receipt (test_platform.PlatformTests.test_normalized_tool_receipt) ... ok
+test_real_image_and_audio (test_platform.PlatformTests.test_real_image_and_audio) ... ok
+test_remote_spec_is_rejected (test_platform.PlatformTests.test_remote_spec_is_rejected) ... ok
+test_render_error_preserves_encoder_stderr (test_platform.PlatformTests.test_render_error_preserves_encoder_stderr) ... ok
+test_workspace_and_formats (test_platform.PlatformTests.test_workspace_and_formats) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 10.569s
+
+OK

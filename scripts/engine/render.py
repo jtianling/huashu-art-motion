@@ -10,10 +10,11 @@ uv run --with playwright python render.py --spec clip.json --out 片段.mp4 [--a
     宽高/fps 从 spec 读；默认无声 H.264 yuv420p、每秒一个关键帧（GOP=fps，管线渲染器按秒 seek），--alpha 出 ProRes 4444 带透明（.mov）。spec 里图片路径相对 spec 文件。
 页面里有 pageerror 或 console.error（场景报错、缺字形）→ 渲完后非零退出。
 """
-import argparse, base64, http.server, json, socketserver, subprocess, sys, threading, functools, time, urllib.parse
+import argparse, base64, http.server, json, socketserver, subprocess, sys, functools, time, urllib.parse
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import spec_assets
+from platform_runtime import chromium, encoder, serving
 from playwright.sync_api import sync_playwright
 
 ap = argparse.ArgumentParser()
@@ -75,6 +76,8 @@ AUDIT_JS = r"""
 
 class Q(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *x): pass
+    def log_error(self, fmt, *args):
+        print('[http]', self.path, fmt % args, file=sys.stderr)
     def translate_path(self, path):
         if path.startswith('/__file__/'):
             f = urllib.parse.unquote(path[len('/__file__/'):].split('?')[0])
@@ -87,11 +90,12 @@ class LocalServer(socketserver.ThreadingTCPServer):
 
 srv = LocalServer(('127.0.0.1', 0), functools.partial(Q, directory=str(root)))
 port = srv.server_address[1]
-threading.Thread(target=srv.serve_forever, daemon=True).start()
 
-with sync_playwright() as p:
-    b = p.chromium.launch(args=['--disable-web-security', '--enable-gpu-rasterization', '--ignore-gpu-blocklist'])
+with serving(srv), sync_playwright() as p, chromium(p) as b:
     pg = b.new_page(viewport={'width': 1920, 'height': 1080}, device_scale_factor=1)
+    pg.on('response', lambda response: print(
+        f'[http {response.status}] {response.url}', file=sys.stderr
+    ) if response.status >= 400 else None)
     errors = []
     def on_console(m):
         if m.type in ('error', 'warning'): print('[page]', m.text)
@@ -120,7 +124,6 @@ with sync_playwright() as p:
         import audit_clip
         rep = audit_clip.run(pg, spec, grab)
         if a.audit != '-': Path(a.audit).write_text(json.dumps(rep, ensure_ascii=False, indent=1))
-        b.close(); srv.shutdown(); srv.server_close()
         sys.exit(1 if rep['red'] else 0)
     if a.solo:
         grab = '''async (t)=>{ window.renderSolo(%s, t, {counter: %s}); return window.__canvas.toDataURL('image/png').split(',')[1]; }''' % (repr(a.solo), 'false' if a.no_counter else 'true')
@@ -136,22 +139,19 @@ with sync_playwright() as p:
               ['-c:v', 'libx264', '-preset', 'slow', '-crf', str(a.crf), '-pix_fmt', 'yuv420p', '-movflags', '+faststart'] + \
               (['-g', str(a.fps), '-keyint_min', str(a.fps), '-sc_threshold', '0'] if spec else [])   # 片段要被管线的渲染器按秒 seek：每秒一个关键帧，否则冻帧
         if spec and a.alpha and not vid.endswith('.mov'): print('提示：ProRes 4444 一般用 .mov 容器')
-        ff = subprocess.Popen(['ffmpeg', '-y', '-v', 'error', '-f', 'image2pipe', '-framerate', str(a.fps), '-c:v', 'png', '-i', '-'] + enc + [vid],
-                              stdin=subprocess.PIPE)
+        command = ['ffmpeg', '-y', '-v', 'error', '-f', 'image2pipe',
+                   '-framerate', str(a.fps), '-c:v', 'png', '-i', '-'] + enc + [vid]
         n0, n1 = round(a.t0 * a.fps), round(a.t1 * a.fps)
         st = time.time()
-        for i in range(n0, n1):
-            ff.stdin.write(base64.b64decode(pg.evaluate(grab, i / a.fps)))
-            if (i - n0) % 60 == 0:
-                print(f'{i}/{n1}  {time.time()-st:.0f}s', flush=True)
-        ff.stdin.close(); ff.wait()
+        with encoder(command) as pipe:
+            for i in range(n0, n1):
+                pipe.write(base64.b64decode(pg.evaluate(grab, i / a.fps)))
+                if (i - n0) % 60 == 0:
+                    print(f'{i}/{n1}  {time.time()-st:.0f}s', flush=True)
         if a.audio:
             subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', vid, '-ss', str(a.t0), '-t', str(a.t1 - a.t0), '-i', a.audio,
                             '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '256k', '-shortest', a.out], check=True)
             Path(vid).unlink()
         print('done ->', a.out)
-    b.close()
-srv.shutdown()
-srv.server_close()
 if LONG_CLIP: print(LONG_CLIP, file=sys.stderr)   # 渲完再说一遍，免得被进度行冲掉
 if errors: raise SystemExit(f'❌ 页面报错 {len(errors)} 条（见上方 [page]/[pageerror]）')

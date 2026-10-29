@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "required": ["status", "tool", "localPath"],
+  "additionalProperties": false,
+  "properties": {
+    "status": {"type": "string", "enum": ["success"]},
+    "tool": {
+      "type": "string",
+      "enum": ["image_generate", "text_to_speech", "music_generate"]
+    },
+    "localPath": {"type": "string", "pattern": ".+"}
+  }
+}

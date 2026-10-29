@@ -5,10 +5,10 @@
 ## 本地检查
 
 ```sh
-python -m pip install requests Pillow
-# 另需系统安装ffmpeg/ffprobe；不会在正常Skill激活时自动安装
-python -m unittest discover -s tests -v
+python3 -m unittest discover -s tests/platform -v
 ```
+
+平台依赖由沙箱预装, 不在任务或宿主环境自动安装.  当前平台接入见 [平台约定](references/platform.md); 原版供应商/宿主测试保留作历史参考, 不冒充平台兼容性证据.
 
 单元测试不调用真实语音/生图服务。真实宿主验收见[兼容性记录](references/compatibility.md)。新增适配器必须明确：配置、探查、请求与输出契约、失败行为；不能仅替换base_url就宣称兼容另一平台。
 

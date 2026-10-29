@@ -1,3 +1,5 @@
+> Monkeys 平台适配 fork.  原作者和许可证保留, 当前运行与媒体接入以 [平台约定](references/platform.md) 为准.  使用预装 Python/Playwright/Chromium、FFmpeg/FFprobe、NumPy/Pillow/OpenCV, 不执行下文历史 uv/安装命令.  配音与生图改用平台工具, Mac/火山和私人宿主配置未启用.  本地验证不等于生产沙箱已具备依赖.
+
 <div align="center">
 
 **简体中文** | [English](README.en.md)

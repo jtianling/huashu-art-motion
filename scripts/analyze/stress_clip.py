@@ -84,7 +84,7 @@ def main():
     tiles = []
     for name, d in vs.items():
         f = out / f'{name}.json'; f.write_text(json.dumps(d, ensure_ascii=False))
-        r = subprocess.run(['uv', 'run', '--with', 'playwright', 'python', str(eng / 'render.py'), '--spec', str(f), '--stills', str(t), '--out', str(out / name)], capture_output=True, text=True)
+        r = subprocess.run([sys.executable, str(eng / 'render.py'), '--spec', str(f), '--stills', str(t), '--out', str(out / name)], capture_output=True, text=True)
         pngs = sorted((out / name).glob('*.png'))
         if not pngs:
             print(f'[{name}] 渲染失败：', (r.stdout + r.stderr).strip().splitlines()[-1:]); tiles.append((name, None)); continue

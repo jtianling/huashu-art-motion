@@ -1,0 +1,29 @@
+{
+  "project": "/skill/scripts/engine",
+  "spec": "/work/evidence/clip.json",
+  "segments": [
+    {
+      "id": "evidence",
+      "window_lt": [
+        0.0,
+        6.98
+      ],
+      "frames": 83,
+      "ms_mean": 1.7,
+      "ms_max": 14.0,
+      "ms_cold": 61.2,
+      "deterministic": false,
+      "det_maxdiff": 13,
+      "motion_pct": 0.43,
+      "motion_max": 4.53,
+      "still_pairs_pct": 64.6,
+      "spike_ratio": 90.6,
+      "spikes_at_lt": [],
+      "camera_events_lt": [],
+      "framing": [],
+      "text_tracked": 2491
+    }
+  ],
+  "transitions": [],
+  "page_errors": []
+}
